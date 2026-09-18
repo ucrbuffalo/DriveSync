@@ -1,0 +1,171 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "extended-gray:1.00000,1.00000",
+      "extended-gray:1.00000,1.00000"
+    ]
+  },
+  "groups" : [
+    {
+      "hidden" : false,
+      "layers" : [
+        {
+          "image-name" : "Untitled-1.svg",
+          "name" : "Untitled-1",
+          "position" : {
+            "scale" : 0.73,
+            "translation-in-points" : [
+              206,
+              224
+            ]
+          }
+        }
+      ],
+      "name" : "Group",
+      "position" : {
+        "scale" : 0.6,
+        "translation-in-points" : [
+          80,
+          74
+        ]
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    },
+    {
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "fill" : {
+            "linear-gradient" : [
+              "display-p3:0.87977,0.36986,0.26324,1.00000",
+              "display-p3:0.81448,0.34092,0.23689,1.00000"
+            ]
+          },
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Up Arrow Top 2.svg",
+          "name" : "Up Arrow Top 2",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -332.5386000000003,
+              230.99840000000017
+            ]
+          }
+        },
+        {
+          "fill" : {
+            "linear-gradient" : [
+              "display-p3:0.87977,0.36986,0.26324,1.00000",
+              "display-p3:0.81448,0.34092,0.23689,1.00000"
+            ]
+          },
+          "image-name" : "Bottom Arrow Top.svg",
+          "name" : "Bottom Arrow Top",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -536.2986000000001,
+              65.22340000000008
+            ]
+          }
+        },
+        {
+          "fill" : {
+            "linear-gradient" : [
+              "display-p3:0.87977,0.36986,0.26324,1.00000",
+              "display-p3:0.81448,0.34092,0.23689,1.00000"
+            ]
+          },
+          "image-name" : "Bottom Arrow Bottom.svg",
+          "name" : "Bottom Arrow Bottom",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -424.2986000000001,
+              340.54840000000013
+            ]
+          }
+        },
+        {
+          "fill" : {
+            "linear-gradient" : [
+              "display-p3:0.87977,0.36986,0.26324,1.00000",
+              "display-p3:0.81448,0.34092,0.23689,1.00000"
+            ]
+          },
+          "image-name" : "Up Arrow Bottom 2.svg",
+          "name" : "Up Arrow Bottom 2",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -311.2986000000001,
+              615.8884000000002
+            ]
+          }
+        },
+        {
+          "fill" : {
+            "linear-gradient" : [
+              "display-p3:0.87977,0.36986,0.26324,1.00000",
+              "display-p3:0.81448,0.34092,0.23689,1.00000"
+            ]
+          },
+          "image-name" : "DriveSyncTop.svg",
+          "name" : "DriveSyncTop",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -424.2986000000001,
+              340.54840000000013
+            ]
+          }
+        },
+        {
+          "fill" : {
+            "linear-gradient" : [
+              "display-p3:0.87977,0.36986,0.26324,1.00000",
+              "display-p3:0.87977,0.36986,0.26324,1.00000"
+            ]
+          },
+          "image-name" : "DriveSyncBottom.svg",
+          "name" : "DriveSyncBottom",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -424.2986000000001,
+              340.54840000000013
+            ]
+          }
+        }
+      ],
+      "lighting" : "individual",
+      "name" : "Group",
+      "position" : {
+        "scale" : 0.72,
+        "translation-in-points" : [
+          193,
+          -351
+        ]
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : "shared"
+  }
+}

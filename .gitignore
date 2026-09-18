@@ -1,0 +1,39 @@
+# ---- macOS ----
+.DS_Store
+._*
+Icon?
+
+# ---- Xcode: user-specific state ----
+# Window positions, breakpoints, which files you had open.
+# Personal to you, changes constantly, belongs in no repo.
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# ---- Xcode: build output ----
+# Rebuildable from source. DerivedData can reach gigabytes.
+build/
+DerivedData/
+*.hmap
+*.dSYM
+*.dSYM.zip
+*.xcarchive
+*.moved-aside
+
+# ---- Swift Package Manager ----
+.build/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+
+# ---- Signing and secrets ----
+*.p12
+*.mobileprovision
+*.provisionprofile
+*.cer
+ExportOptions.plist
+
+# ---- Installer output ----
+# build-installer.sh writes here. Product, not source.
+Installer/build/
+*.dmg
+*.pkg

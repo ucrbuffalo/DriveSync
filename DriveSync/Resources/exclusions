@@ -1,0 +1,14 @@
+# macOS system folders
+.Spotlight-V100/
+.Trashes/
+.TemporaryItems/
+.fseventsd/
+
+# Windows system items
+Thumbs.db
+
+# Finder metadata
+._*
+
+# Finder view settings
+.DS_Store

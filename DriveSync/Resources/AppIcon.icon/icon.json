@@ -1,0 +1,74 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "display-p3:0.87977,0.36986,0.26324,1.00000",
+      "display-p3:0.81448,0.34092,0.23689,1.00000"
+    ]
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "fill" : "automatic",
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Up Arrow Top 2.svg",
+          "name" : "Up Arrow Top 2",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              91.75999999999976,
+              -109.54999999999995
+            ]
+          }
+        },
+        {
+          "image-name" : "Bottom Arrow Top.svg",
+          "name" : "Bottom Arrow Top",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -112,
+              -275.32500000000005
+            ]
+          }
+        },
+        {
+          "image-name" : "Bottom Arrow Bottom.svg",
+          "name" : "Bottom Arrow Bottom"
+        },
+        {
+          "image-name" : "Up Arrow Bottom 2.svg",
+          "name" : "Up Arrow Bottom 2",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              113,
+              275.34000000000003
+            ]
+          }
+        },
+        {
+          "image-name" : "DriveSyncTop.svg",
+          "name" : "DriveSyncTop"
+        },
+        {
+          "image-name" : "DriveSyncBottom.svg",
+          "name" : "DriveSyncBottom"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : "shared"
+  }
+}

@@ -1,0 +1,185 @@
+#!/bin/bash
+
+set -u
+
+# ------------------------------------------------------------
+# DriveSync Installer — postinstall
+#
+# Restores the automatic-sync state captured by preinstall
+# after the new DriveSync application has been installed.
+# ------------------------------------------------------------
+
+UPGRADE_STATE="/private/tmp/com.drivesync.app.upgrade-sync-state"
+
+if [[ ! -f "$UPGRADE_STATE" ]]; then
+    echo "ERROR: DriveSync upgrade state was not found."
+    exit 1
+fi
+
+# Read only the values written by our preinstall script.
+CONSOLE_USER="$(/usr/bin/awk -F= '$1=="CONSOLE_USER" {print substr($0, index($0,"=")+1)}' "$UPGRADE_STATE")"
+USER_UID="$(/usr/bin/awk -F= '$1=="USER_UID" {print substr($0, index($0,"=")+1)}' "$UPGRADE_STATE")"
+USER_HOME="$(/usr/bin/awk -F= '$1=="USER_HOME" {print substr($0, index($0,"=")+1)}' "$UPGRADE_STATE")"
+SYNC_LOADED="$(/usr/bin/awk -F= '$1=="SYNC_LOADED" {print substr($0, index($0,"=")+1)}' "$UPGRADE_STATE")"
+HEALTH_LOADED="$(/usr/bin/awk -F= '$1=="HEALTH_LOADED" {print substr($0, index($0,"=")+1)}' "$UPGRADE_STATE")"
+
+if [[ -z "$CONSOLE_USER" || -z "$USER_UID" || -z "$USER_HOME" ]]; then
+    echo "ERROR: DriveSync upgrade state is incomplete."
+    exit 1
+fi
+
+USER_DOMAIN="gui/$USER_UID"
+USER_GROUP="$(/usr/bin/id -gn "$CONSOLE_USER")"
+
+if [[ -z "$USER_GROUP" ]]; then
+    echo "ERROR: Could not determine the primary group for $CONSOLE_USER."
+    exit 1
+fi
+
+SYNC_PLIST="$USER_HOME/Library/LaunchAgents/com.drivesync.sync.plist"
+HEALTH_PLIST="$USER_HOME/Library/LaunchAgents/com.drivesync.health.plist"
+
+echo "DriveSync postinstall:"
+echo "  Logged-in user: $CONSOLE_USER"
+echo "  Previous Sync state: $SYNC_LOADED"
+echo "  Previous Health state: $HEALTH_LOADED"
+
+# ------------------------------------------------------------
+# Ensure required Application Support structure exists
+#
+# Existing user files are never inspected, repaired, or replaced.
+# Missing required files receive minimal valid defaults.
+# ------------------------------------------------------------
+
+SUPPORT_DIR="$USER_HOME/Library/Application Support/DriveSync"
+CONFIG_DIR="$SUPPORT_DIR/config"
+LOGS_DIR="$SUPPORT_DIR/logs"
+STATE_DIR="$SUPPORT_DIR/state"
+
+CONFIG_PLIST="$CONFIG_DIR/config.plist"
+USER_EXCLUSIONS="$CONFIG_DIR/exclusions-user"
+
+echo "  Checking Application Support..."
+
+mkdir -p "$CONFIG_DIR" "$LOGS_DIR" "$STATE_DIR"
+
+/usr/sbin/chown "$CONSOLE_USER:$USER_GROUP" \
+    "$SUPPORT_DIR" \
+    "$CONFIG_DIR" \
+    "$LOGS_DIR" \
+    "$STATE_DIR"
+
+if [[ ! -e "$CONFIG_PLIST" ]]; then
+    /usr/bin/printf '%s\n' \
+        '<?xml version="1.0" encoding="UTF-8"?>' \
+        '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+        '<plist version="1.0">' \
+        '<dict/>' \
+        '</plist>' > "$CONFIG_PLIST"
+
+    /usr/sbin/chown "$CONSOLE_USER:$USER_GROUP" "$CONFIG_PLIST"
+    /bin/chmod 644 "$CONFIG_PLIST"
+
+    echo "  Missing config.plist created."
+else
+    echo "  Existing config.plist preserved."
+fi
+
+if [[ ! -e "$USER_EXCLUSIONS" ]]; then
+    /usr/bin/touch "$USER_EXCLUSIONS"
+    /usr/sbin/chown "$CONSOLE_USER:$USER_GROUP" "$USER_EXCLUSIONS"
+    /bin/chmod 644 "$USER_EXCLUSIONS"
+
+    echo "  Missing exclusions-user created."
+else
+    echo "  Existing exclusions-user preserved."
+fi
+
+echo "  Application Support ready."
+
+# ------------------------------------------------------------
+# Load the privileged uninstall helper
+# ------------------------------------------------------------
+
+HELPER_PATH="/Library/PrivilegedHelperTools/com.drivesync.uninstall-helper"
+HELPER_PLIST="/Library/LaunchDaemons/com.drivesync.uninstall-helper.plist"
+HELPER_LABEL="com.drivesync.uninstall-helper"
+
+echo "  Loading privileged uninstall helper..."
+
+if [[ ! -x "$HELPER_PATH" ]]; then
+    echo "ERROR: Privileged uninstall helper is missing or not executable:"
+    echo "  $HELPER_PATH"
+    exit 1
+fi
+
+if [[ ! -f "$HELPER_PLIST" ]]; then
+    echo "ERROR: Uninstall helper LaunchDaemon plist is missing:"
+    echo "  $HELPER_PLIST"
+    exit 1
+fi
+
+# Remove an existing loaded service during upgrades before loading
+# the newly installed helper.
+if /bin/launchctl print "system/$HELPER_LABEL" >/dev/null 2>&1; then
+    if ! /bin/launchctl bootout "system/$HELPER_LABEL"; then
+        echo "ERROR: Could not unload the existing uninstall helper."
+        exit 1
+    fi
+
+    echo "  Existing uninstall helper unloaded."
+fi
+
+if ! /bin/launchctl bootstrap system "$HELPER_PLIST"; then
+    echo "ERROR: Could not load the uninstall helper."
+    exit 1
+fi
+
+echo "  Privileged uninstall helper loaded."
+
+# ------------------------------------------------------------
+# Restore automatic syncing
+#
+# false / false = intentionally disabled; leave disabled.
+# Any state containing true = automatic syncing was enabled or
+# incomplete/broken; restore both services.
+# ------------------------------------------------------------
+
+if [[ "$SYNC_LOADED" == "true" || "$HEALTH_LOADED" == "true" ]]; then
+
+    if [[ ! -f "$SYNC_PLIST" ]]; then
+        echo "ERROR: Sync LaunchAgent plist is missing:"
+        echo "  $SYNC_PLIST"
+        exit 1
+    fi
+
+    if [[ ! -f "$HEALTH_PLIST" ]]; then
+        echo "ERROR: Health LaunchAgent plist is missing:"
+        echo "  $HEALTH_PLIST"
+        exit 1
+    fi
+
+    if ! /bin/launchctl bootstrap "$USER_DOMAIN" "$SYNC_PLIST"; then
+        echo "ERROR: Could not restore the Sync LaunchAgent."
+        exit 1
+    fi
+
+    echo "  Sync LaunchAgent restored."
+
+    if ! /bin/launchctl bootstrap "$USER_DOMAIN" "$HEALTH_PLIST"; then
+        echo "ERROR: Could not restore the Health LaunchAgent."
+        exit 1
+    fi
+
+    echo "  Health LaunchAgent restored."
+
+else
+    echo "  Automatic Sync was disabled; services remain disabled."
+fi
+
+rm -f "$UPGRADE_STATE"
+
+echo "  Upgrade state removed."
+echo "  DriveSync postinstall complete."
+
+exit 0

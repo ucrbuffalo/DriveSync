@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 348.16 272.88">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff;
+      }
+    </style>
+  </defs>
+  <path id="Up_Arrow_-_Bottom" data-name="Up Arrow - Bottom" class="cls-1" d="M0,58.48c19.91,22.2,43.2,44.23,69.84,66.05,80.79,66.18,176.16,117.2,241.94,148.36l36.38-76.82c-61.48-29.12-150.33-76.57-224.46-137.29C99.78,39.17,79.06,19.51,61.75,0"/>
+</svg>

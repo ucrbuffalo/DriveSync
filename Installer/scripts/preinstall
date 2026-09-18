@@ -1,0 +1,215 @@
+#!/bin/bash
+
+set -u
+
+# ------------------------------------------------------------
+# DriveSync Installer — preinstall
+#
+# Safety rule:
+# Never replace DriveSync while an actual backup is running.
+#
+# A stale running.lock does NOT block installation.
+# ------------------------------------------------------------
+
+CONSOLE_USER="$(/usr/bin/stat -f '%Su' /dev/console)"
+
+if [[ -z "$CONSOLE_USER" || "$CONSOLE_USER" == "root" || "$CONSOLE_USER" == "loginwindow" ]]; then
+    echo "ERROR: Could not determine the logged-in user."
+    exit 1
+fi
+
+USER_HOME="$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | /usr/bin/awk '{print $2}')"
+
+if [[ -z "$USER_HOME" || ! -d "$USER_HOME" ]]; then
+    echo "ERROR: Could not determine the home directory for $CONSOLE_USER."
+    exit 1
+fi
+
+LOCK_DIR="$USER_HOME/Library/Application Support/DriveSync/state/running.lock"
+PID_FILE="$LOCK_DIR/pid"
+
+USER_UID="$(/usr/bin/id -u "$CONSOLE_USER")"
+USER_DOMAIN="gui/$USER_UID"
+
+SYNC_LABEL="com.drivesync.sync"
+HEALTH_LABEL="com.drivesync.health"
+
+UPGRADE_STATE="/private/tmp/com.drivesync.app.upgrade-sync-state"
+
+echo "DriveSync preinstall:"
+echo "  Logged-in user: $CONSOLE_USER"
+echo "  Home directory: $USER_HOME"
+
+# ------------------------------------------------------------
+# Handle a currently running DriveSync backup
+# ------------------------------------------------------------
+
+if [[ -f "$PID_FILE" ]]; then
+    PID="$(/bin/cat "$PID_FILE" 2>/dev/null || true)"
+
+    if [[ ! "$PID" =~ ^[0-9]+$ ]]; then
+        echo "  Stale DriveSync lock detected: invalid PID."
+
+    else
+        COMMAND="$(/bin/ps -ww -p "$PID" -o command= 2>/dev/null || true)"
+
+        if [[ -z "$COMMAND" ]]; then
+            echo "  Stale DriveSync lock detected: process $PID is not running."
+
+        elif [[ "$COMMAND" == *"DriveSync.sh"* ]]; then
+            echo "  Active DriveSync backup detected: PID $PID."
+
+            CHOICE=$(
+                /bin/launchctl asuser "$USER_UID" \
+                /usr/bin/sudo -u "$CONSOLE_USER" \
+                /usr/bin/osascript -e \
+                'button returned of (display dialog "A DriveSync backup is currently in progress. DriveSync must finish or stop the current backup before it can be updated." buttons {"Cancel Installation", "Stop Backup and Continue"} default button "Stop Backup and Continue" with title "DriveSync Installer" with icon caution)'
+            )
+
+            if [[ "$CHOICE" != "Stop Backup and Continue" ]]; then
+                echo "ERROR: Installation cancelled because a DriveSync backup is running."
+                exit 1
+            fi
+
+            INSTALLED_SCRIPT="/Applications/DriveSync/DriveSync.app/Contents/Resources/DriveSync.sh"
+
+            if [[ ! -x "$INSTALLED_SCRIPT" ]]; then
+                echo "ERROR: Could not locate the installed DriveSync stop command."
+                exit 1
+            fi
+
+            echo "  Requesting graceful backup cancellation..."
+
+            /bin/launchctl asuser "$USER_UID" \
+                /usr/bin/sudo -u "$CONSOLE_USER" \
+                /usr/bin/env HOME="$USER_HOME" \
+                "$INSTALLED_SCRIPT" --stop
+
+            echo "  Waiting for DriveSync backup to stop..."
+
+            STOPPED=false
+
+            for ((SECONDS_WAITED=0; SECONDS_WAITED<120; SECONDS_WAITED++)); do
+                if ! /bin/kill -0 "$PID" 2>/dev/null; then
+                    STOPPED=true
+                    break
+                fi
+
+                /bin/sleep 1
+            done
+
+            if [[ "$STOPPED" != "true" ]]; then
+                echo "ERROR: DriveSync did not stop within 2 minutes."
+                echo "Installation cannot continue while a backup is running."
+                exit 1
+            fi
+
+            echo "  DriveSync backup stopped successfully."
+
+        else
+            echo "  Stale DriveSync lock detected: PID $PID belongs to another process."
+        fi
+    fi
+else
+    echo "  No active DriveSync backup detected."
+fi
+
+# ------------------------------------------------------------
+# Gracefully quit the DriveSync app before replacing it
+# ------------------------------------------------------------
+
+DRIVESYNC_BUNDLE_ID="com.drivesync.app"
+
+if /usr/bin/pgrep -x "DriveSync" >/dev/null 2>&1; then
+    echo "  DriveSync app is currently running."
+    echo "  Requesting graceful app shutdown..."
+
+    /bin/launchctl asuser "$USER_UID" \
+        /usr/bin/sudo -u "$CONSOLE_USER" \
+        /usr/bin/osascript -e \
+        'tell application id "com.drivesync.app" to quit' \
+        >/dev/null 2>&1 || true
+
+    APP_STOPPED=false
+
+    for ((SECONDS_WAITED=0; SECONDS_WAITED<10; SECONDS_WAITED++)); do
+        if ! /usr/bin/pgrep -x "DriveSync" >/dev/null 2>&1; then
+            APP_STOPPED=true
+            break
+        fi
+
+        /bin/sleep 1
+    done
+
+    if [[ "$APP_STOPPED" != "true" ]]; then
+        echo "ERROR: DriveSync did not quit within 10 seconds."
+        echo "Installation cannot continue while DriveSync is running."
+        exit 1
+    fi
+
+    echo "  DriveSync app quit successfully."
+else
+    echo "  DriveSync app is not currently running."
+fi
+
+# ------------------------------------------------------------
+# Capture current automatic-sync service state
+# ------------------------------------------------------------
+
+SYNC_LOADED=false
+HEALTH_LOADED=false
+
+if /bin/launchctl print "$USER_DOMAIN/$SYNC_LABEL" >/dev/null 2>&1; then
+    SYNC_LOADED=true
+fi
+
+if /bin/launchctl print "$USER_DOMAIN/$HEALTH_LABEL" >/dev/null 2>&1; then
+    HEALTH_LOADED=true
+fi
+
+echo "  Sync LaunchAgent loaded: $SYNC_LOADED"
+echo "  Health LaunchAgent loaded: $HEALTH_LOADED"
+
+# Remove any stale state left behind by an interrupted installer.
+rm -f "$UPGRADE_STATE"
+
+/usr/bin/touch "$UPGRADE_STATE"
+/bin/chmod 600 "$UPGRADE_STATE"
+/usr/sbin/chown root:wheel "$UPGRADE_STATE"
+
+{
+    echo "CONSOLE_USER=$CONSOLE_USER"
+    echo "USER_UID=$USER_UID"
+    echo "USER_HOME=$USER_HOME"
+    echo "SYNC_LOADED=$SYNC_LOADED"
+    echo "HEALTH_LOADED=$HEALTH_LOADED"
+} > "$UPGRADE_STATE"
+
+echo "  Upgrade state captured."
+
+# ------------------------------------------------------------
+# Unload DriveSync LaunchAgents for the maintenance window
+# ------------------------------------------------------------
+
+echo "  Entering installer maintenance window..."
+
+if [[ "$SYNC_LOADED" == "true" ]]; then
+    if /bin/launchctl bootout "$USER_DOMAIN/$SYNC_LABEL" >/dev/null 2>&1; then
+        echo "  Sync LaunchAgent unloaded."
+    else
+        echo "ERROR: Could not unload the Sync LaunchAgent."
+        exit 1
+    fi
+fi
+
+if [[ "$HEALTH_LOADED" == "true" ]]; then
+    if /bin/launchctl bootout "$USER_DOMAIN/$HEALTH_LABEL" >/dev/null 2>&1; then
+        echo "  Health LaunchAgent unloaded."
+    else
+        echo "ERROR: Could not unload the Health LaunchAgent."
+        exit 1
+    fi
+fi
+
+echo "  DriveSync maintenance window ready."
+exit 0

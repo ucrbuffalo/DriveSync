@@ -1,0 +1,4 @@
+-x com.apple.assetsd.importedBy
+-x com.apple.provenance
+-x com.apple.quarantine
+-x com.apple.macl
