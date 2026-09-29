@@ -9,6 +9,7 @@ final class AppDelegate: NSObject,
         _ notification: Notification
     ) {
         _ = DriveSyncNotificationController.shared
+        registerLoginItemIfNeeded()
 
         let notificationCenter =
             UNUserNotificationCenter.current()
@@ -23,6 +24,25 @@ final class AppDelegate: NSObject,
                     "Notification authorization failed: \(error.localizedDescription)"
                 )
             }
+        }
+    }
+    
+    private func registerLoginItemIfNeeded() {
+        let key = "loginItemConfigured"
+
+        guard !UserDefaults.standard.bool(forKey: key) else {
+            return
+        }
+
+        do {
+            let controller = DriveSyncLoginItemController()
+            try controller.setEnabled(true)
+
+            if controller.isEnabled {
+                UserDefaults.standard.set(true, forKey: key)
+            }
+        } catch {
+            print("Could not register login item: \(error.localizedDescription)")
         }
     }
 
