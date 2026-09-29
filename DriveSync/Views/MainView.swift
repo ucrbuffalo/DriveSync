@@ -36,6 +36,20 @@ struct MainView: View {
             .frame(maxWidth: .infinity)
             .padding(.bottom, 4)
 
+            if let availableUpdate = statusMonitor.availableUpdate {
+                Button {
+                    NSWorkspace.shared.open(availableUpdate.releaseURL)
+                } label: {
+                    Label(
+                        "Version \(availableUpdate.version) is available",
+                        systemImage: "arrow.down.circle"
+                    )
+                    .font(.callout)
+                }
+                .buttonStyle(.link)
+                .frame(maxWidth: .infinity)
+            }
+
             VStack(alignment: .leading, spacing: 6) {
                 Text("Last Successful Sync")
                     .font(.headline)
@@ -208,6 +222,7 @@ struct MainView: View {
         .padding(.top, 8)
         .task {
             statusMonitor.refreshAll()
+            await statusMonitor.refreshUpdateStatus()
         }
         .alert("DriveSync Health Check", isPresented: $showingHealthCheckResult) {
             Button("OK", role: .cancel) { }

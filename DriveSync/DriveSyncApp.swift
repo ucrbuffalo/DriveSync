@@ -28,7 +28,7 @@ struct DriveSyncApp: App {
         .restorationBehavior(.disabled)
         .commands {
             IssuesCommands()
-            HelpCommands()
+            HelpCommands(statusMonitor: statusMonitor)
         }
 
         MenuBarExtra(
@@ -66,12 +66,56 @@ struct IssuesCommands: Commands {
 }
 
 struct HelpCommands: Commands {
+    let statusMonitor: DriveSyncStatusMonitor
+
+    private var currentVersion: String {
+        Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String ?? "?"
+    }
+
     var body: some Commands {
         CommandGroup(after: .help) {
+            Button("Check for Updates…") {
+                checkForUpdates()
+            }
+
             Button("Uninstall DriveSync…") {
                 launchUninstaller()
             }
         }
+    }
+
+    private func checkForUpdates() {
+        Task { @MainActor in
+            switch await statusMonitor.refreshUpdateStatus(force: true) {
+            case .available(let update):
+                let alert = NSAlert()
+                alert.messageText = "Version \(update.version) is available"
+                alert.informativeText = "You are running \(currentVersion)."
+                alert.addButton(withTitle: "Open Release Page")
+                alert.addButton(withTitle: "Later")
+
+                if alert.runModal() == .alertFirstButtonReturn {
+                    NSWorkspace.shared.open(update.releaseURL)
+                }
+
+            case .upToDate:
+                presentMessage("DriveSync is running the latest version.")
+
+            case .failed:
+                presentMessage("DriveSync could not check for updates.")
+            }
+        }
+    }
+
+    @MainActor
+    private func presentMessage(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = "Check for Updates"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     private func launchUninstaller() {

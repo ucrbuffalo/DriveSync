@@ -48,6 +48,17 @@ struct DriveSyncMenuBarView: View {
                     )
                 }
             }
+            
+            if let availableUpdate = statusMonitor.availableUpdate {
+                Button {
+                    NSWorkspace.shared.open(availableUpdate.releaseURL)
+                } label: {
+                    Label(
+                        "Version \(availableUpdate.version) is available",
+                        systemImage: "arrow.down.circle"
+                    )
+                }
+            }
 
             Divider()
 

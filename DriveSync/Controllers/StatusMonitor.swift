@@ -8,6 +8,7 @@ final class DriveSyncStatusMonitor {
     private let serviceController = DriveSyncServiceController()
     private let issueStore = DriveSyncIssueStore()
     private let logController = DriveSyncLogController()
+    private let updateController = DriveSyncUpdateController()
 
     private var timerCancellable: AnyCancellable?
     private var tickCount = 0
@@ -25,6 +26,8 @@ final class DriveSyncStatusMonitor {
     var currentIssues: [DriveSyncIssue] = []
 
     var latestLogName: String?
+    
+    var availableUpdate: DriveSyncUpdate?
 
     init() {
         refreshAll()
@@ -47,6 +50,25 @@ final class DriveSyncStatusMonitor {
     func refreshAll() {
         refreshFastStatus()
         refreshSlowStatus()
+    }
+    
+    @MainActor
+    @discardableResult
+    func refreshUpdateStatus(force: Bool = false) async -> DriveSyncUpdateCheck {
+        let result = await updateController.checkForUpdate(force: force)
+
+        switch result {
+        case .available(let update):
+            availableUpdate = update
+
+        case .upToDate:
+            availableUpdate = nil
+
+        case .failed:
+            break
+        }
+
+        return result
     }
 
     private func timerTick() {
