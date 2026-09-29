@@ -232,6 +232,10 @@ struct SetupView: View {
             // Setup already succeeded; a failed check must not roll it back.
             try? serviceController.requestAccessCheck()
 
+            serviceController.scheduleAccessProbeCleanup(
+                destinationPath: destinationPath
+            )
+
             saveError = nil
             onSetupCompleted()
 

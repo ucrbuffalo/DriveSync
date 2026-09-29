@@ -2,6 +2,7 @@ import Foundation
 
 final class DriveSyncServiceController {
     private let fileManager = FileManager.default
+    private let accessProbeName = ".drivesync-access-probe"
     
     private var scriptURL: URL? {
         Bundle.main.url(
@@ -129,7 +130,27 @@ final class DriveSyncServiceController {
     func requestImmediateSync() throws {
         try kickstartSyncJob(flagName: "run-now")
     }
-    
+
+    // Remove the probe file the access check leaves in the destination.
+    func scheduleAccessProbeCleanup(destinationPath: String) {
+        let probeURL = URL(fileURLWithPath: destinationPath)
+            .appendingPathComponent(accessProbeName)
+
+        Task.detached(priority: .background) {
+            let fileManager = FileManager.default
+            let deadline = Date().addingTimeInterval(120)
+
+            while Date() < deadline {
+                if fileManager.fileExists(atPath: probeURL.path) {
+                    try? fileManager.removeItem(at: probeURL)
+                    return
+                }
+
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+
     private func validatePrerequisites(scheduleTimes: [SyncTime]) throws {
         guard
             let scriptURL,
