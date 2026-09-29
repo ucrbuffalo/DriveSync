@@ -122,6 +122,14 @@ final class DriveSyncServiceController {
         }
     }
     
+    func requestAccessCheck() throws {
+        try kickstartSyncJob(flagName: "check-access")
+    }
+
+    func requestImmediateSync() throws {
+        try kickstartSyncJob(flagName: "run-now")
+    }
+    
     private func validatePrerequisites(scheduleTimes: [SyncTime]) throws {
         guard
             let scriptURL,
@@ -284,6 +292,45 @@ final class DriveSyncServiceController {
             throw DriveSyncServiceError.verificationFailed(label)
         }
     }
+    
+    private func kickstartSyncJob(flagName: String) throws {
+        let label = "com.drivesync.sync"
+
+        guard serviceIsLoaded(label: label) else {
+            throw DriveSyncServiceError.verificationFailed(label)
+        }
+
+        let stateDirectory = fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent(
+                "Library/Application Support/DriveSync/state"
+            )
+
+        try fileManager.createDirectory(
+            at: stateDirectory,
+            withIntermediateDirectories: true
+        )
+
+        let flagURL = stateDirectory
+            .appendingPathComponent(flagName)
+
+        guard fileManager.createFile(
+            atPath: flagURL.path,
+            contents: nil
+        ) else {
+            throw DriveSyncServiceError.jobStartFailed(label)
+        }
+
+        let status = runLaunchctl([
+            "kickstart",
+            "-k",
+            "\(userDomain)/\(label)"
+        ])
+
+        guard status == 0 else {
+            try? fileManager.removeItem(at: flagURL)
+            throw DriveSyncServiceError.jobStartFailed(label)
+        }
+    }
 
     private func serviceIsLoaded(label: String) -> Bool {
         runLaunchctl([
@@ -331,6 +378,7 @@ enum DriveSyncServiceError: LocalizedError {
     case loadFailed(String)
     case verificationFailed(String)
     case removeFailed(String)
+    case jobStartFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -363,6 +411,9 @@ enum DriveSyncServiceError: LocalizedError {
             
         case .removeFailed(let path):
             return "DriveSync could not remove the LaunchAgent at \(path)."
+            
+        case .jobStartFailed(let label):
+            return "\(label) could not be started."
         }
     }
 }

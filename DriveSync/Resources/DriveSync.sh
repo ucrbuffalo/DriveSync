@@ -360,8 +360,109 @@ if [ "$1" = "--check" ]; then
     exit $?
 fi
 
-# Manual runs bypass the schedule guard
-if [ "$1" != "--manual" ]; then
+# One-shot access probe. Walks the real source and destination with the real
+# filters, transferring nothing, so Setup can surface macOS permission
+# prompts without starting a full backup.
+ACCESS_FLAG="$STATE_DIR/check-access"
+
+if [ -f "$ACCESS_FLAG" ]; then
+    rm -f "$ACCESS_FLAG"
+
+    echo "$(date): Folder access check started." >> "$LOG_FILE"
+
+    if [ -z "$RSYNC_BIN" ] || [ ! -x "$RSYNC_BIN" ]; then
+        echo "$(date): Access check aborted: bundled rsync unavailable." >> "$LOG_FILE"
+        exit 1
+    fi
+
+    if [ ! -f "$EXCLUDES" ] || [ ! -f "$USER_EXCLUDES" ]; then
+        echo "$(date): Access check aborted: exclusions unavailable." >> "$LOG_FILE"
+        exit 1
+    fi
+
+    if [ ! -d "$SOURCE" ]; then
+        echo "$(date): Access check aborted: source folder unavailable." >> "$LOG_FILE"
+        exit 1
+    fi
+
+    if [ ! -d "$DEST" ]; then
+        echo "$(date): Access check aborted: destination folder unavailable." >> "$LOG_FILE"
+        exit 1
+    fi
+
+    "$RSYNC_BIN" \
+        --archive \
+        --dry-run \
+        --xattrs \
+        --acls \
+        --filter="merge $XATTR_EXCLUSIONS" \
+        --exclude-from="$EXCLUDES" \
+        --exclude-from="$USER_EXCLUDES" \
+        "$SOURCE/" \
+        "$DEST/" \
+        >> "$LOG_FILE" 2>&1
+
+    ACCESS_STATUS=$?
+
+    # 23 and 24 mean files vanished or were skipped during the walk.
+    # Normal on a live source; not an access failure.
+    if [ "$ACCESS_STATUS" -ne 0 ] &&
+       [ "$ACCESS_STATUS" -ne 23 ] &&
+       [ "$ACCESS_STATUS" -ne 24 ]; then
+        echo "$(date): Folder access check failed with status $ACCESS_STATUS." >> "$LOG_FILE"
+        exit "$ACCESS_STATUS"
+    fi
+
+    # Confirm the destination is writable using the bundled rsync.
+    PROBE_DIR="$STATE_DIR/probe-$$"
+    PROBE_NAME=".drivesync-access-probe"
+
+    if ! mkdir -p "$PROBE_DIR"; then
+        echo "$(date): Access check aborted: could not stage write probe." >> "$LOG_FILE"
+        exit 1
+    fi
+
+    printf 'DriveSync access probe\n' > "$PROBE_DIR/$PROBE_NAME"
+
+    "$RSYNC_BIN" \
+        --archive \
+        "$PROBE_DIR/$PROBE_NAME" \
+        "$DEST/" \
+        >> "$LOG_FILE" 2>&1
+
+    WRITE_STATUS=$?
+
+    rm -rf "$PROBE_DIR"
+
+    if [ "$WRITE_STATUS" -ne 0 ]; then
+        echo "$(date): Destination is not writable." >> "$LOG_FILE"
+        exit 1
+    fi
+
+    if ! rm -f "$DEST/$PROBE_NAME" 2>> "$LOG_FILE"; then
+        echo "$(date): Note: probe file left in the destination." >> "$LOG_FILE"
+    fi
+
+    echo "$(date): Folder access check passed." >> "$LOG_FILE"
+    exit 0
+fi
+
+# Manual runs bypass the schedule guard. The app also drops a one-shot flag
+# when it needs an immediate run, so the sync happens under this launchd job
+# rather than as a child of the app.
+RUN_NOW_FLAG="$STATE_DIR/run-now"
+
+FORCE_RUN=false
+
+if [ "$1" = "--manual" ]; then
+    FORCE_RUN=true
+elif [ -f "$RUN_NOW_FLAG" ]; then
+    FORCE_RUN=true
+    rm -f "$RUN_NOW_FLAG"
+    echo "$(date): Immediate run requested by DriveSync." >> "$LOG_FILE"
+fi
+
+if [ "$FORCE_RUN" != true ]; then
 
     CURRENT_HOUR=$(date +%H)
     CURRENT_MINUTE=$(date +%M)

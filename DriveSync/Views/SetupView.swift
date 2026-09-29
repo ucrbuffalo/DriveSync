@@ -229,6 +229,9 @@ struct SetupView: View {
             // Commit completion only after both services are active.
             try config.setSetupComplete(true)
 
+            // Setup already succeeded; a failed check must not roll it back.
+            try? serviceController.requestAccessCheck()
+
             saveError = nil
             onSetupCompleted()
 
